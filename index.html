@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Twitter Sentiment Classifier</title>
+
+  <!-- Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path
+            d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z">
+          </path>
+        </svg>
+        <h1>Twitter Sentiment Classifier</h1>
+      </div>
+      <p class="subtitle">Enter a tweet to classify its sentiment via your FastAPI backend</p>
+    </header>
+
+    <!-- Main Card -->
+    <main class="card">
+      <form id="sentimentForm">
+        <div class="form-group">
+          <label for="tweetInput">Tweet Text</label>
+          <textarea id="tweetInput" rows="5" placeholder="Type or paste a tweet here..." maxlength="280"
+            required></textarea>
+          <div class="form-footer">
+            <span id="charCount" class="char-count">0 / 280</span>
+            <button type="button" id="clearBtn" class="btn-text">Clear</button>
+          </div>
+        </div>
+
+        <!-- API Endpoint Configuration (Optional / Collapsible) -->
+        <div class="api-config">
+          <label for="apiUrl">Results..</label>
+          <input type="url" id="apiUrl" value="http://127.0.0.1:8000/predict"
+            placeholder="http://127.0.0.1:8000/predict" />
+        </div>
+
+        <button type="submit" id="submitBtn" class="btn-primary">
+          <span>Analyze Sentiment</span>
+        </button>
+      </form>
+
+      <!-- Status / Loading -->
+      <div id="loadingIndicator" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <span>Connecting to FastAPI backend...</span>
+      </div>
+
+      <!-- Error Message -->
+      <div id="errorBox" class="alert alert-error" style="display: none;"></div>
+
+      <!-- Results Display -->
+      <div id="resultsCard" class="results-card" style="display: none;">
+        <h2>Prediction Result</h2>
+        <div class="result-details">
+          <div class="result-badge" id="sentimentBadge">--</div>
+          <p class="confidence-text">Confidence: <span id="confidenceScore">--</span></p>
+        </div>
+
+        <!-- Raw JSON Response (Helpful during development/testing) -->
+        <details class="raw-response">
+          <summary>View raw API response</summary>
+          <pre><code id="rawResponse">{}</code></pre>
+        </details>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <p>FastAPI + Transformers Learning Project</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
