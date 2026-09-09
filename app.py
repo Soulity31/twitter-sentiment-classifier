@@ -1,3 +1,10 @@
+# ==============================================================================
+# FASTAPI BACKEND (COMMENTED OUT FOR LEARNING / REFERENCE)
+# All connections to FastAPI have been removed from the frontend.
+# The application now runs purely using the Hugging Face Inference API.
+# ==============================================================================
+
+"""
 import os
 import torch
 import joblib
@@ -7,7 +14,6 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from fastapi.middleware.cors import CORSMiddleware
-
 import shutil
 
 ml_models = {}
@@ -127,4 +133,4 @@ def predict_intent(request: PredictRequest):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
-
+"""

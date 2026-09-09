@@ -46,19 +46,12 @@
 
         <!-- API Endpoint Configuration -->
         <div class="api-config">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <label for="apiUrl" style="margin-bottom: 0;">Inference Source</label>
-            <a href="http://127.0.0.1:8000/docs" target="_blank" rel="noopener noreferrer" style="font-size: 0.75rem; color: var(--primary-color); text-decoration: none;">📖 Open Swagger UI</a>
-          </div>
-
-          <div class="preset-selector" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
-            <button type="button" class="preset-btn active" data-url="http://127.0.0.1:8000/predict">⚡ Local FastAPI</button>
-            <button type="button" class="preset-btn" data-url="https://api-inference.huggingface.co/models/Soulity/tweet-sentiment-classifier-model">🤗 Hugging Face</button>
-            <button type="button" class="preset-btn" data-url="/api/predict">▲ Vercel Proxy</button>
-          </div>
-
-          <input type="text" id="apiUrl" value="http://127.0.0.1:8000/predict"
-            placeholder="http://127.0.0.1:8000/predict" />
+          <label for="apiUrl">Hugging Face Model Endpoint</label>
+          <input type="text" id="apiUrl" value="https://api-inference.huggingface.co/models/Soulity/tweet-sentiment-classifier-model"
+            placeholder="https://api-inference.huggingface.co/models/Soulity/tweet-sentiment-classifier-model" />
+          <small style="display: block; margin-top: 0.4rem; font-size: 0.75rem; color: var(--text-secondary);">
+            Hugging Face Inference API (or leave <code>/api/predict</code> if deployed on Vercel)
+          </small>
         </div>
 
         <button type="submit" id="submitBtn" class="btn-primary">

@@ -18,11 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const confidenceScore = document.getElementById('confidenceScore');
   const rawResponse = document.getElementById('rawResponse');
 
+  // Default Hugging Face Model Endpoint
   const DEFAULT_HF_ENDPOINT = 'https://api-inference.huggingface.co/models/Soulity/tweet-sentiment-classifier-model';
-  // Use /api/predict by default when hosted on Vercel/web server; otherwise fallback to HF endpoint
-  const DEFAULT_ENDPOINT = window.location.protocol.startsWith('http')
-    ? '/api/predict'
-    : DEFAULT_HF_ENDPOINT;
 
   // Map raw model IDs to your 4 trained classes
   const LABEL_MAP = {
@@ -31,23 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
     'LABEL_2': 'Neutral',
     'LABEL_3': 'Positive'
   };
-
-  // Preset buttons (Local FastAPI, Hugging Face, Vercel)
-  const presetBtns = document.querySelectorAll('.preset-btn');
-  presetBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      presetBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      apiUrlInput.value = btn.dataset.url;
-    });
-  });
-
-  apiUrlInput.addEventListener('input', () => {
-    const val = apiUrlInput.value.trim();
-    presetBtns.forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.url === val);
-    });
-  });
 
   // Character counter
   tweetInput.addEventListener('input', () => {
@@ -71,33 +51,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const text = tweetInput.value.trim();
     if (!text) return;
 
-    const endpoint = apiUrlInput.value.trim() || 'http://127.0.0.1:8000/predict';
-    const isHuggingFace = endpoint.includes('huggingface.co');
-    const isLocalFastAPI = endpoint.includes('8000') || endpoint.includes('127.0.0.1') || endpoint.includes('localhost');
-    const isVercelProxy = endpoint.includes('/api/predict') || endpoint === '/predict';
+    // Use input endpoint or default to Hugging Face
+    const endpoint = apiUrlInput.value.trim() || DEFAULT_HF_ENDPOINT;
+    const isVercelProxy = endpoint.startsWith('/api/') || endpoint.startsWith('/predict');
 
     hideError();
     hideResults();
-
-    let loadingMsg = 'Running inference...';
-    if (isLocalFastAPI) loadingMsg = '⚡ Inferring with local FastAPI model...';
-    else if (isVercelProxy) loadingMsg = '▲ Analyzing sentiment via Vercel proxy...';
-    else if (isHuggingFace) loadingMsg = '🤗 Calling model on Hugging Face...';
-
-    showLoading(true, loadingMsg);
+    showLoading(true, isVercelProxy ? 'Analyzing via Vercel proxy...' : 'Calling your Hugging Face model...');
 
     try {
-      // Send both 'text' and 'inputs' so it works interchangeably across HF, local FastAPI, and Vercel proxy
-      const requestBody = isHuggingFace 
-        ? { inputs: text } 
-        : { text: text, inputs: text };
-
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({ inputs: text, text: text })
       });
 
       const data = await response.json();
@@ -106,22 +74,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (response.status === 503 && data.estimated_time) {
           throw new Error(`Model is warming up on Hugging Face (estimated wait: ${Math.round(data.estimated_time)}s). Please wait a moment and click Analyze again!`);
         }
-        throw new Error(data.error || data.detail || response.statusText);
+        throw new Error(data.error || data.detail || `Hugging Face returned status ${response.status}`);
       }
 
-      // Handle response formats
+      // Handle Hugging Face array format: [[ { label: "LABEL_3", score: 0.98 }, ... ]]
       let sentiment = 'Unknown';
       let confidence = 0;
 
       if (Array.isArray(data)) {
-        // Hugging Face format: [[ { label: "LABEL_3", score: 0.98 }, ... ]]
         const list = Array.isArray(data[0]) ? data[0] : data;
         const top = list[0] || {};
         const rawLabel = top.label || 'Unknown';
         sentiment = LABEL_MAP[rawLabel] || rawLabel;
         confidence = top.score || 0;
       } else if (data.intent || data.sentiment) {
-        // Local FastAPI format: { text: "...", intent: "Positive", confidence: 0.98 }
         sentiment = data.intent || data.sentiment;
         confidence = data.confidence || 0;
       }
@@ -134,11 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
     } catch (err) {
-      if (isLocalFastAPI && (err.message.includes('Failed to fetch') || err.name === 'TypeError')) {
-        showError(`⚠️ <strong>FastAPI Connection Error:</strong> Unable to reach <code>${endpoint}</code>.<br><br>Make sure your FastAPI server is running in your terminal:<br><code style="background:#161b22;padding:4px 8px;border-radius:4px;display:inline-block;margin-top:6px;font-family:monospace;">python app.py</code>`);
-      } else {
-        showError(`Inference notice: ${err.message}`);
-      }
+      showError(`Hugging Face Notice: ${err.message}<br><br><small style="color:var(--text-secondary);">If direct fetch fails due to browser CORS, deploy to Vercel where the <code>/api/predict</code> proxy handles the request server-side.</small>`);
     } finally {
       showLoading(false);
     }
@@ -167,8 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function displayResult(result) {
     const sentiment = result.intent;
-    const confidence = typeof result.confidence === 'number' 
-      ? (result.confidence * 100).toFixed(1) + '%' 
+    const confidence = typeof result.confidence === 'number'
+      ? (result.confidence * 100).toFixed(1) + '%'
       : result.confidence;
 
     sentimentBadge.textContent = sentiment;
