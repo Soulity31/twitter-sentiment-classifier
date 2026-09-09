@@ -47,11 +47,19 @@
         <!-- API Endpoint Configuration -->
         <div class="api-config">
           <label for="apiUrl">Hugging Face Model Endpoint</label>
-          <input type="text" id="apiUrl" value="https://api-inference.huggingface.co/models/Soulity/tweet-sentiment-classifier-model"
-            placeholder="https://api-inference.huggingface.co/models/Soulity/tweet-sentiment-classifier-model" />
-          <small style="display: block; margin-top: 0.4rem; font-size: 0.75rem; color: var(--text-secondary);">
-            Hugging Face Inference API (or leave <code>/api/predict</code> if deployed on Vercel)
-          </small>
+          <input type="text" id="apiUrl" value="https://router.huggingface.co/hf-inference/models/Soulity/tweet-sentiment-classifier-model"
+            placeholder="https://router.huggingface.co/hf-inference/models/Soulity/tweet-sentiment-classifier-model" />
+
+          <div style="margin-top: 0.85rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <label for="hfToken" style="margin-bottom: 0;">Hugging Face Access Token (Free)</label>
+              <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" style="font-size: 0.75rem; color: var(--primary-color); text-decoration: none;">Get Token ↗</a>
+            </div>
+            <input type="password" id="hfToken" value="" placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxx (starts with hf_)" />
+            <small style="display: block; margin-top: 0.35rem; font-size: 0.75rem; color: var(--text-secondary);">
+              Required by Hugging Face to authorize inference and prevent CORS "Failed to fetch" errors. Saved locally in your browser.
+            </small>
+          </div>
         </div>
 
         <button type="submit" id="submitBtn" class="btn-primary">

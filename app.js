@@ -18,8 +18,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const confidenceScore = document.getElementById('confidenceScore');
   const rawResponse = document.getElementById('rawResponse');
 
-  // Default Hugging Face Model Endpoint
-  const DEFAULT_HF_ENDPOINT = 'https://api-inference.huggingface.co/models/Soulity/tweet-sentiment-classifier-model';
+  const hfTokenInput = document.getElementById('hfToken');
+
+  // Load saved token from browser storage
+  const savedToken = localStorage.getItem('hf_access_token');
+  if (savedToken && hfTokenInput) {
+    hfTokenInput.value = savedToken;
+  } else if (hfTokenInput && hfTokenInput.value) {
+    localStorage.setItem('hf_access_token', hfTokenInput.value.trim());
+  }
+  if (hfTokenInput) {
+    hfTokenInput.addEventListener('input', () => {
+      localStorage.setItem('hf_access_token', hfTokenInput.value.trim());
+    });
+  }
+
+  // Active Hugging Face Router Endpoint
+  const DEFAULT_HF_ENDPOINT = 'https://router.huggingface.co/hf-inference/models/Soulity/tweet-sentiment-classifier-model';
 
   // Map raw model IDs to your 4 trained classes
   const LABEL_MAP = {
@@ -53,19 +68,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Use input endpoint or default to Hugging Face
     const endpoint = apiUrlInput.value.trim() || DEFAULT_HF_ENDPOINT;
+    const isHuggingFace = endpoint.includes('huggingface.co');
     const isVercelProxy = endpoint.startsWith('/api/') || endpoint.startsWith('/predict');
+    const token = hfTokenInput ? hfTokenInput.value.trim() : '';
 
     hideError();
     hideResults();
+
+    // Check if calling HF directly without a token
+    if (isHuggingFace && !token) {
+      showError(
+        `⚠️ <strong>Hugging Face Token Required:</strong><br>` +
+        `Hugging Face blocks anonymous browser requests with <code>Failed to fetch</code> (CORS 401).<br><br>` +
+        `Please paste your free Hugging Face token in the <strong>Access Token</strong> field above (starts with <code>hf_...</code>) or deploy to Vercel.`
+      );
+      if (hfTokenInput) hfTokenInput.focus();
+      return;
+    }
+
     showLoading(true, isVercelProxy ? 'Analyzing via Vercel proxy...' : 'Calling your Hugging Face model...');
 
     try {
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ inputs: text, text: text })
+        headers: headers,
+        body: JSON.stringify({ inputs: text })
       });
 
       const data = await response.json();
@@ -73,6 +108,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!response.ok) {
         if (response.status === 503 && data.estimated_time) {
           throw new Error(`Model is warming up on Hugging Face (estimated wait: ${Math.round(data.estimated_time)}s). Please wait a moment and click Analyze again!`);
+        }
+        if (response.status === 401) {
+          throw new Error(`Invalid or unauthorized Hugging Face token. Please check your token at huggingface.co/settings/tokens`);
         }
         throw new Error(data.error || data.detail || `Hugging Face returned status ${response.status}`);
       }
@@ -100,7 +138,17 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
     } catch (err) {
-      showError(`Hugging Face Notice: ${err.message}<br><br><small style="color:var(--text-secondary);">If direct fetch fails due to browser CORS, deploy to Vercel where the <code>/api/predict</code> proxy handles the request server-side.</small>`);
+      if (err.message.includes('Failed to fetch') || err.name === 'TypeError') {
+        showError(
+          `⚠️ <strong>Connection Error (Failed to fetch):</strong><br>` +
+          `Your browser was blocked by CORS when communicating directly with Hugging Face.<br><br>` +
+          `<strong>How to fix:</strong><br>` +
+          `1. Ensure your Hugging Face token is filled in above.<br>` +
+          `2. Or deploy to Vercel (where <code>/api/predict</code> bypasses browser CORS entirely).`
+        );
+      } else {
+        showError(`Hugging Face Notice: ${err.message}`);
+      }
     } finally {
       showLoading(false);
     }

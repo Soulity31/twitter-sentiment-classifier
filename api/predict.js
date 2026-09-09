@@ -25,8 +25,8 @@ export default async function handler(req, res) {
     }
 
     const MODEL_ID = 'Soulity/tweet-sentiment-classifier-model';
-    const primaryUrl = `https://api-inference.huggingface.co/models/${MODEL_ID}`;
-    const routerUrl = `https://router.huggingface.co/hf-inference/models/${MODEL_ID}`;
+    const primaryUrl = `https://router.huggingface.co/hf-inference/models/${MODEL_ID}`;
+    const fallbackUrl = `https://api-inference.huggingface.co/models/${MODEL_ID}`;
 
     // Use token from Vercel Environment Variables or incoming header
     const token =
@@ -47,9 +47,9 @@ export default async function handler(req, res) {
       body: JSON.stringify({ inputs: text })
     });
 
-    // Fallback to router endpoint if 404
+    // Fallback if needed
     if (response.status === 404) {
-      response = await fetch(routerUrl, {
+      response = await fetch(fallbackUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify({ inputs: text })
