@@ -3,6 +3,7 @@ import torch
 import joblib
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from fastapi.middleware.cors import CORSMiddleware
@@ -70,6 +71,18 @@ class PredictResponse(BaseModel):
     confidence: float
 
 @app.get("/")
+def serve_index():
+    return FileResponse(os.path.join(BASE_DIR, "index.html"))
+
+@app.get("/styles.css")
+def serve_styles():
+    return FileResponse(os.path.join(BASE_DIR, "styles.css"))
+
+@app.get("/app.js")
+def serve_js():
+    return FileResponse(os.path.join(BASE_DIR, "app.js"))
+
+@app.get("/health")
 def health_check():
     return {"status": "healthy", "device": ml_models.get("device", "unknown")}
 

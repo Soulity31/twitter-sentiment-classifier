@@ -170,6 +170,30 @@ textarea:focus {
   border-color: var(--primary-color);
 }
 
+.preset-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.35rem 0.65rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preset-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--primary-color);
+}
+
+.preset-btn.active {
+  background: rgba(29, 155, 240, 0.15);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
 /* Submit Button */
 .btn-primary {
   width: 100%;

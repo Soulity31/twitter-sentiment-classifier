@@ -19,6 +19,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const rawResponse = document.getElementById('rawResponse');
 
   const DEFAULT_HF_ENDPOINT = 'https://api-inference.huggingface.co/models/Soulity/tweet-sentiment-classifier-model';
+  // Use /api/predict by default when hosted on Vercel/web server; otherwise fallback to HF endpoint
+  const DEFAULT_ENDPOINT = window.location.protocol.startsWith('http')
+    ? '/api/predict'
+    : DEFAULT_HF_ENDPOINT;
 
   // Map raw model IDs to your 4 trained classes
   const LABEL_MAP = {
@@ -27,6 +31,23 @@ document.addEventListener('DOMContentLoaded', () => {
     'LABEL_2': 'Neutral',
     'LABEL_3': 'Positive'
   };
+
+  // Preset buttons (Local FastAPI, Hugging Face, Vercel)
+  const presetBtns = document.querySelectorAll('.preset-btn');
+  presetBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      presetBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      apiUrlInput.value = btn.dataset.url;
+    });
+  });
+
+  apiUrlInput.addEventListener('input', () => {
+    const val = apiUrlInput.value.trim();
+    presetBtns.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.url === val);
+    });
+  });
 
   // Character counter
   tweetInput.addEventListener('input', () => {
@@ -50,16 +71,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const text = tweetInput.value.trim();
     if (!text) return;
 
-    const endpoint = apiUrlInput.value.trim() || DEFAULT_HF_ENDPOINT;
+    const endpoint = apiUrlInput.value.trim() || 'http://127.0.0.1:8000/predict';
     const isHuggingFace = endpoint.includes('huggingface.co');
+    const isLocalFastAPI = endpoint.includes('8000') || endpoint.includes('127.0.0.1') || endpoint.includes('localhost');
+    const isVercelProxy = endpoint.includes('/api/predict') || endpoint === '/predict';
 
     hideError();
     hideResults();
-    showLoading(true, isHuggingFace ? 'Calling your model on Hugging Face...' : 'Running inference...');
+
+    let loadingMsg = 'Running inference...';
+    if (isLocalFastAPI) loadingMsg = '⚡ Inferring with local FastAPI model...';
+    else if (isVercelProxy) loadingMsg = '▲ Analyzing sentiment via Vercel proxy...';
+    else if (isHuggingFace) loadingMsg = '🤗 Calling model on Hugging Face...';
+
+    showLoading(true, loadingMsg);
 
     try {
-      // HF uses { inputs: text }, local FastAPI uses { text: text }
-      const requestBody = isHuggingFace ? { inputs: text } : { text: text };
+      // Send both 'text' and 'inputs' so it works interchangeably across HF, local FastAPI, and Vercel proxy
+      const requestBody = isHuggingFace 
+        ? { inputs: text } 
+        : { text: text, inputs: text };
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -103,7 +134,11 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
     } catch (err) {
-      showError(`Inference notice: ${err.message}`);
+      if (isLocalFastAPI && (err.message.includes('Failed to fetch') || err.name === 'TypeError')) {
+        showError(`⚠️ <strong>FastAPI Connection Error:</strong> Unable to reach <code>${endpoint}</code>.<br><br>Make sure your FastAPI server is running in your terminal:<br><code style="background:#161b22;padding:4px 8px;border-radius:4px;display:inline-block;margin-top:6px;font-family:monospace;">python app.py</code>`);
+      } else {
+        showError(`Inference notice: ${err.message}`);
+      }
     } finally {
       showLoading(false);
     }
