@@ -28,7 +28,7 @@
         </svg>
         <h1>Twitter Sentiment Classifier</h1>
       </div>
-      <p class="subtitle">Enter a tweet to classify its sentiment via your FastAPI backend</p>
+      <p class="subtitle">Enter a tweet to classify its sentiment with AI directly in your browser</p>
     </header>
 
     <!-- Main Card -->
@@ -44,12 +44,14 @@
           </div>
         </div>
 
-        <!-- API Endpoint Configuration (Optional / Collapsible) -->
-        <div class="api-config">
-          <label for="apiUrl">Results..</label>
-          <input type="url" id="apiUrl" value="http://127.0.0.1:8000/predict"
-            placeholder="http://127.0.0.1:8000/predict" />
-        </div>
+        <!-- Optional Custom API Endpoint -->
+        <details class="api-config" style="margin-bottom: 1.25rem;">
+          <summary style="font-size: 0.85rem; color: var(--text-secondary); cursor: pointer; margin-bottom: 0.5rem;">
+            ⚙️ Custom Backend API (Optional)
+          </summary>
+          <input type="url" id="apiUrl" value=""
+            placeholder="Leave empty to run AI directly in your browser" />
+        </details>
 
         <button type="submit" id="submitBtn" class="btn-primary">
           <span>Analyze Sentiment</span>
@@ -59,7 +61,7 @@
       <!-- Status / Loading -->
       <div id="loadingIndicator" class="loading" style="display: none;">
         <div class="spinner"></div>
-        <span>Connecting to FastAPI backend...</span>
+        <span id="loadingText">Analyzing sentiment...</span>
       </div>
 
       <!-- Error Message -->
@@ -73,20 +75,20 @@
           <p class="confidence-text">Confidence: <span id="confidenceScore">--</span></p>
         </div>
 
-        <!-- Raw JSON Response (Helpful during development/testing) -->
+        <!-- Raw JSON Response -->
         <details class="raw-response">
-          <summary>View raw API response</summary>
+          <summary>View raw output</summary>
           <pre><code id="rawResponse">{}</code></pre>
         </details>
       </div>
     </main>
 
     <footer class="footer">
-      <p>FastAPI + Transformers Learning Project</p>
+      <p>Powered by Transformers.js • Serverless AI</p>
     </footer>
   </div>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 
 </html>
