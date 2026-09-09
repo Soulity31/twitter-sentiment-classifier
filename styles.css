@@ -8,20 +8,22 @@
   --text-secondary: #94a3b8;
   --primary-color: #1d9bf0;
   --primary-hover: #1a8cd8;
-  
+
   --pos-color: #10b981;
   --pos-bg: rgba(16, 185, 129, 0.15);
   --neg-color: #f43f5e;
   --neg-bg: rgba(244, 63, 94, 0.15);
   --neu-color: #f59e0b;
   --neu-bg: rgba(245, 158, 11, 0.15);
-  
+
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -212,7 +214,9 @@ textarea:focus {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Alert / Error Box */

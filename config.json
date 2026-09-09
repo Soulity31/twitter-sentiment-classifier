@@ -11,17 +11,17 @@
   "eos_token_id": null,
   "hidden_dim": 3072,
   "id2label": {
-    "0": "LABEL_0",
-    "1": "LABEL_1",
-    "2": "LABEL_2",
-    "3": "LABEL_3"
+    "0": "Irrelevant",
+    "1": "Negative",
+    "2": "Neutral",
+    "3": "Positive"
   },
   "initializer_range": 0.02,
   "label2id": {
-    "LABEL_0": 0,
-    "LABEL_1": 1,
-    "LABEL_2": 2,
-    "LABEL_3": 3
+    "Irrelevant": 0,
+    "Negative": 1,
+    "Neutral": 2,
+    "Positive": 3
   },
   "max_position_embeddings": 512,
   "model_type": "distilbert",

@@ -7,9 +7,21 @@ from pydantic import BaseModel
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from fastapi.middleware.cors import CORSMiddleware
 
+import shutil
+
 ml_models = {}
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = BASE_DIR
+
+# If model was placed in "New folder", restore it to main project directory
+new_folder_model = os.path.join(BASE_DIR, "New folder", "model.safetensors")
+root_model = os.path.join(BASE_DIR, "model.safetensors")
+if os.path.exists(new_folder_model) and not os.path.exists(root_model):
+    try:
+        shutil.move(new_folder_model, root_model)
+        print("Restored model.safetensors to project root")
+    except Exception as e:
+        print(f"Notice: {e}")
 
 @asynccontextmanager
 async def lifespan(app : FastAPI):
@@ -17,12 +29,18 @@ async def lifespan(app : FastAPI):
     print(f"Loading model artifacts on {device}")
 
     try:
+        model_load_dir = MODEL_DIR
+        if not os.path.exists(os.path.join(MODEL_DIR, "model.safetensors")):
+            alt_dir = os.path.join(MODEL_DIR, "New folder")
+            if os.path.exists(os.path.join(alt_dir, "model.safetensors")):
+                model_load_dir = alt_dir
+
         ml_models["tokenizer"] = AutoTokenizer.from_pretrained(MODEL_DIR)
-        ml_models["model"] = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR).to(device)
+        ml_models["model"] = AutoModelForSequenceClassification.from_pretrained(model_load_dir).to(device)
         ml_models["model"].eval()
         ml_models["label_encoder"] = joblib.load(os.path.join(MODEL_DIR, "label_encoder.joblib"))
         ml_models["device"] = device
-        print("Model loaded successfully")
+        print(f"Model loaded successfully from {model_load_dir}")
     except Exception as e:
         print(f"Error loading model artifacts: {e}")
         raise e
@@ -92,3 +110,8 @@ def predict_intent(request: PredictRequest):
         intent=str(predicted_label),
         confidence=round(confidence.item(), 4)
     )
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
+

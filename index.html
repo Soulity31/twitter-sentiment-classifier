@@ -28,7 +28,7 @@
         </svg>
         <h1>Twitter Sentiment Classifier</h1>
       </div>
-      <p class="subtitle">Enter a tweet to classify its sentiment with AI directly in your browser</p>
+      <p class="subtitle">Classify tweet sentiment using your fine-tuned DistilBERT model</p>
     </header>
 
     <!-- Main Card -->
@@ -44,14 +44,12 @@
           </div>
         </div>
 
-        <!-- Optional Custom API Endpoint -->
-        <details class="api-config" style="margin-bottom: 1.25rem;">
-          <summary style="font-size: 0.85rem; color: var(--text-secondary); cursor: pointer; margin-bottom: 0.5rem;">
-            ⚙️ Custom Backend API (Optional)
-          </summary>
-          <input type="url" id="apiUrl" value=""
-            placeholder="Leave empty to run AI directly in your browser" />
-        </details>
+        <!-- API Endpoint Configuration -->
+        <div class="api-config">
+          <label for="apiUrl">Model API URL</label>
+          <input type="url" id="apiUrl" value="https://api-inference.huggingface.co/models/Soulity/tweet-sentiment-classifier-model"
+            placeholder="https://api-inference.huggingface.co/models/Soulity/tweet-sentiment-classifier-model" />
+        </div>
 
         <button type="submit" id="submitBtn" class="btn-primary">
           <span>Analyze Sentiment</span>
@@ -61,7 +59,7 @@
       <!-- Status / Loading -->
       <div id="loadingIndicator" class="loading" style="display: none;">
         <div class="spinner"></div>
-        <span id="loadingText">Analyzing sentiment...</span>
+        <span>Running inference on your trained model...</span>
       </div>
 
       <!-- Error Message -->
@@ -77,18 +75,18 @@
 
         <!-- Raw JSON Response -->
         <details class="raw-response">
-          <summary>View raw output</summary>
+          <summary>View raw API response</summary>
           <pre><code id="rawResponse">{}</code></pre>
         </details>
       </div>
     </main>
 
     <footer class="footer">
-      <p>Powered by Transformers.js • Serverless AI</p>
+      <p>Custom Fine-Tuned DistilBERT Model</p>
     </footer>
   </div>
 
-  <script type="module" src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 
 </html>

@@ -1,24 +1,7 @@
 /**
- * Twitter Sentiment Classifier - In-Browser AI via Transformers.js
- * Runs 100% client-side in the browser on Vercel without requiring a backend server.
+ * Twitter Sentiment Classifier - Client
+ * Connects to YOUR custom-trained model on Hugging Face (or local FastAPI app.py)
  */
-
-import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
-
-// Configure Transformers.js to use browser cache
-env.allowLocalModels = false;
-env.useBrowserCache = true;
-
-let classifier = null;
-
-async function getClassifier(progressCallback) {
-  if (!classifier) {
-    classifier = await pipeline('sentiment-analysis', 'Xenova/distilbert-base-uncased-finetuned-sst-2-english', {
-      progress_callback: progressCallback
-    });
-  }
-  return classifier;
-}
 
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('sentimentForm');
@@ -29,12 +12,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const submitBtn = document.getElementById('submitBtn');
 
   const loadingIndicator = document.getElementById('loadingIndicator');
-  const loadingText = document.getElementById('loadingText');
   const errorBox = document.getElementById('errorBox');
   const resultsCard = document.getElementById('resultsCard');
   const sentimentBadge = document.getElementById('sentimentBadge');
   const confidenceScore = document.getElementById('confidenceScore');
   const rawResponse = document.getElementById('rawResponse');
+
+  const DEFAULT_HF_ENDPOINT = 'https://api-inference.huggingface.co/models/Soulity/tweet-sentiment-classifier-model';
+
+  // Map raw model IDs to your 4 trained classes
+  const LABEL_MAP = {
+    'LABEL_0': 'Irrelevant',
+    'LABEL_1': 'Negative',
+    'LABEL_2': 'Neutral',
+    'LABEL_3': 'Positive'
+  };
 
   // Character counter
   tweetInput.addEventListener('input', () => {
@@ -51,78 +43,76 @@ document.addEventListener('DOMContentLoaded', () => {
     tweetInput.focus();
   });
 
-  // Form submit -> Run sentiment analysis
+  // Form submit -> Send tweet to model
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const text = tweetInput.value.trim();
     if (!text) return;
 
+    const endpoint = apiUrlInput.value.trim() || DEFAULT_HF_ENDPOINT;
+    const isHuggingFace = endpoint.includes('huggingface.co');
+
     hideError();
     hideResults();
-
-    const customApi = apiUrlInput ? apiUrlInput.value.trim() : '';
-
-    // If user provided a custom backend URL, send request there
-    if (customApi) {
-      showLoading(true, 'Connecting to custom API...');
-      try {
-        const response = await fetch(customApi, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text })
-        });
-
-        if (!response.ok) {
-          throw new Error(`Server returned HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        displayResult(data);
-      } catch (err) {
-        showError(`Could not connect to API at <code>${customApi}</code>.<br><small>${err.message}</small>`);
-      } finally {
-        showLoading(false);
-      }
-      return;
-    }
-
-    // Default: Run in-browser AI with Transformers.js (Zero server required)
-    showLoading(true, 'Loading AI model into browser (first time only)...');
+    showLoading(true, isHuggingFace ? 'Calling your model on Hugging Face...' : 'Running inference...');
 
     try {
-      const pipe = await getClassifier((progress) => {
-        if (progress.status === 'progress') {
-          const pct = Math.round(progress.progress || 0);
-          showLoading(true, `Downloading model weights: ${pct}%...`);
-        } else if (progress.status === 'ready') {
-          showLoading(true, 'Model ready! Analyzing tweet...');
-        }
+      // HF uses { inputs: text }, local FastAPI uses { text: text }
+      const requestBody = isHuggingFace ? { inputs: text } : { text: text };
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
       });
 
-      showLoading(true, 'Analyzing sentiment...');
-      const output = await pipe(text);
+      const data = await response.json();
 
-      // Transformers.js output format: [{ label: 'POSITIVE', score: 0.9987 }]
-      const top = output && output[0] ? output[0] : { label: 'Unknown', score: 0 };
-      const formattedLabel = top.label === 'POSITIVE' ? 'Positive' : top.label === 'NEGATIVE' ? 'Negative' : top.label;
+      if (!response.ok) {
+        if (response.status === 503 && data.estimated_time) {
+          throw new Error(`Model is warming up on Hugging Face (estimated wait: ${Math.round(data.estimated_time)}s). Please wait a moment and click Analyze again!`);
+        }
+        throw new Error(data.error || data.detail || response.statusText);
+      }
+
+      // Handle response formats
+      let sentiment = 'Unknown';
+      let confidence = 0;
+
+      if (Array.isArray(data)) {
+        // Hugging Face format: [[ { label: "LABEL_3", score: 0.98 }, ... ]]
+        const list = Array.isArray(data[0]) ? data[0] : data;
+        const top = list[0] || {};
+        const rawLabel = top.label || 'Unknown';
+        sentiment = LABEL_MAP[rawLabel] || rawLabel;
+        confidence = top.score || 0;
+      } else if (data.intent || data.sentiment) {
+        // Local FastAPI format: { text: "...", intent: "Positive", confidence: 0.98 }
+        sentiment = data.intent || data.sentiment;
+        confidence = data.confidence || 0;
+      }
 
       displayResult({
         text: text,
-        intent: formattedLabel,
-        confidence: top.score
+        intent: sentiment,
+        confidence: confidence,
+        raw: data
       });
 
     } catch (err) {
-      showError(`In-browser classification error: ${err.message}`);
+      showError(`Inference notice: ${err.message}`);
     } finally {
       showLoading(false);
     }
   });
 
-  function showLoading(isLoading, msg = 'Analyzing sentiment...') {
+  function showLoading(isLoading, msg = 'Running inference...') {
     loadingIndicator.style.display = isLoading ? 'flex' : 'none';
-    if (loadingText) loadingText.textContent = msg;
+    const span = loadingIndicator.querySelector('span');
+    if (span) span.textContent = msg;
     submitBtn.disabled = isLoading;
   }
 
@@ -140,11 +130,11 @@ document.addEventListener('DOMContentLoaded', () => {
     resultsCard.style.display = 'none';
   }
 
-  function displayResult(data) {
-    const sentiment = (data.intent || data.sentiment || data.label || data.prediction || 'Unknown').toString();
-    const confidence = data.confidence !== undefined 
-      ? (typeof data.confidence === 'number' ? (data.confidence * 100).toFixed(1) + '%' : data.confidence) 
-      : 'N/A';
+  function displayResult(result) {
+    const sentiment = result.intent;
+    const confidence = typeof result.confidence === 'number' 
+      ? (result.confidence * 100).toFixed(1) + '%' 
+      : result.confidence;
 
     sentimentBadge.textContent = sentiment;
     sentimentBadge.className = 'result-badge';
@@ -154,12 +144,14 @@ document.addEventListener('DOMContentLoaded', () => {
       sentimentBadge.classList.add('badge-positive');
     } else if (sLower.includes('neg')) {
       sentimentBadge.classList.add('badge-negative');
-    } else {
+    } else if (sLower.includes('neu')) {
       sentimentBadge.classList.add('badge-neutral');
+    } else {
+      sentimentBadge.classList.add('badge-irrelevant');
     }
 
     confidenceScore.textContent = confidence;
-    rawResponse.textContent = JSON.stringify(data, null, 2);
+    rawResponse.textContent = JSON.stringify(result.raw || result, null, 2);
     resultsCard.style.display = 'block';
   }
 });
