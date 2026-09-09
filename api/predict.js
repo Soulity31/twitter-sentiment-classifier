@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     const primaryUrl = `https://router.huggingface.co/hf-inference/models/${MODEL_ID}`;
     const fallbackUrl = `https://api-inference.huggingface.co/models/${MODEL_ID}`;
 
-    // Use token from Vercel Environment Variables or incoming header
+    // Use token securely from environment variables (.env / Vercel Environment Variables)
     const token =
       process.env.HF_TOKEN ||
       process.env.HUGGINGFACE_TOKEN ||
