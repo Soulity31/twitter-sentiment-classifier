@@ -1,0 +1,12 @@
+# Model weights and archives (too large for GitHub > 100MB)
+*.safetensors
+model.safetensors
+*.zip
+saved_model_archive.zip
+*.bin
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+New folder/
