@@ -53,7 +53,7 @@
       <!-- Status / Loading -->
       <div id="loadingIndicator" class="loading" style="display: none;">
         <div class="spinner"></div>
-        <span>Running inference on your trained model...</span>
+        <span id="loadingText">Analyzing sentiment...</span>
       </div>
 
       <!-- Error Message -->
@@ -69,18 +69,18 @@
 
         <!-- Raw JSON Response -->
         <details class="raw-response">
-          <summary>View raw API response</summary>
+          <summary>View raw output</summary>
           <pre><code id="rawResponse">{}</code></pre>
         </details>
       </div>
     </main>
 
     <footer class="footer">
-      <p>Custom Fine-Tuned DistilBERT Model</p>
+      <p>Twitter Sentiment Classifier • Powered by DistilBERT</p>
     </footer>
   </div>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 
 </html>

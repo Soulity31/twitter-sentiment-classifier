@@ -24,55 +24,29 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Text cannot be empty' });
     }
 
-    const MODEL_ID = 'Soulity/tweet-sentiment-classifier-model';
-    const primaryUrl = `https://router.huggingface.co/hf-inference/models/${MODEL_ID}`;
-    const fallbackUrl = `https://api-inference.huggingface.co/models/${MODEL_ID}`;
-
-    // Use token securely from environment variables (.env / Vercel Environment Variables)
     const token =
       process.env.HF_TOKEN ||
       process.env.HUGGINGFACE_TOKEN ||
       (req.headers['authorization'] ? req.headers['authorization'].replace('Bearer ', '') : null);
 
-    const headers = {
-      'Content-Type': 'application/json'
-    };
+    const headers = { 'Content-Type': 'application/json' };
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    let response = await fetch(primaryUrl, {
+    // Cardiff NLP Twitter Sentiment model
+    const hfUrl = 'https://router.huggingface.co/hf-inference/models/cardiffnlp/twitter-roberta-base-sentiment-latest';
+    const response = await fetch(hfUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify({ inputs: text })
     });
 
-    // Fallback if needed
-    if (response.status === 404) {
-      response = await fetch(fallbackUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ inputs: text })
-      });
-    }
-
     const data = await response.json();
-
-    if (!response.ok) {
-      if (response.status === 503 && data.estimated_time) {
-        return res.status(503).json({
-          error: `Model is warming up on Hugging Face (estimated wait: ${Math.round(data.estimated_time)}s). Please try again shortly!`
-        });
-      }
-      return res.status(response.status).json({
-        error: data.error || data.detail || `Hugging Face API returned error ${response.status}`
-      });
-    }
-
-    return res.status(200).json(data);
+    return res.status(response.ok ? 200 : response.status).json(data);
   } catch (err) {
     return res.status(500).json({
-      error: err.message || 'Server error communicating with Hugging Face Inference API'
+      error: err.message || 'Error processing sentiment prediction'
     });
   }
 }

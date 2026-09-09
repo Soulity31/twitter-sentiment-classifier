@@ -1,7 +1,27 @@
 /**
  * Twitter Sentiment Classifier - Client
- * Works both locally (Live Server) and on Vercel with automatic fallback
+ * Supports both:
+ * 1. Local Python FastAPI backend (http://127.0.0.1:8000) using your trained model.safetensors
+ * 2. In-browser AI (Transformers.js) for 100% serverless deployment on Vercel or Live Server
+ * Zero tokens required • Zero cloud API rate limits • Zero deployment headaches
  */
+
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+
+// Enable browser cache for instant repeat predictions
+env.allowLocalModels = false;
+env.useBrowserCache = true;
+
+let browserClassifier = null;
+
+async function getBrowserClassifier(onProgress) {
+  if (!browserClassifier) {
+    browserClassifier = await pipeline('sentiment-analysis', 'Xenova/twitter-roberta-base-sentiment-latest', {
+      progress_callback: onProgress
+    });
+  }
+  return browserClassifier;
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('sentimentForm');
@@ -11,21 +31,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const submitBtn = document.getElementById('submitBtn');
 
   const loadingIndicator = document.getElementById('loadingIndicator');
+  const loadingText = document.getElementById('loadingText');
   const errorBox = document.getElementById('errorBox');
   const resultsCard = document.getElementById('resultsCard');
   const sentimentBadge = document.getElementById('sentimentBadge');
   const confidenceScore = document.getElementById('confidenceScore');
   const rawResponse = document.getElementById('rawResponse');
 
-  // Map raw model labels to sentiment classes
-  const LABEL_MAP = {
-    'LABEL_0': 'Irrelevant',
-    'LABEL_1': 'Negative',
-    'LABEL_2': 'Neutral',
-    'LABEL_3': 'Positive'
-  };
-
-  // Character counter
+  // Live character counter
   tweetInput.addEventListener('input', () => {
     const len = tweetInput.value.length;
     charCount.textContent = `${len} / 280`;
@@ -40,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tweetInput.focus();
   });
 
-  // Form submit -> Run inference
+  // Form submit -> Run sentiment classification
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -49,117 +62,99 @@ document.addEventListener('DOMContentLoaded', () => {
 
     hideError();
     hideResults();
-    showLoading(true, 'Analyzing sentiment with your model...');
+    showLoading(true, 'Analyzing sentiment...');
 
     try {
-      const data = await getPrediction(text);
-
-      // Handle Hugging Face array format: [[ { label: "LABEL_3", score: 0.98 }, ... ]]
-      let sentiment = 'Unknown';
-      let confidence = 0;
-
-      if (Array.isArray(data)) {
-        const list = Array.isArray(data[0]) ? data[0] : data;
-        const top = list[0] || {};
-        const rawLabel = top.label || 'Unknown';
-        sentiment = LABEL_MAP[rawLabel] || rawLabel;
-        confidence = top.score || 0;
-      } else if (data.intent || data.sentiment) {
-        sentiment = data.intent || data.sentiment;
-        confidence = data.confidence || 0;
-      }
-
-      displayResult({
-        text: text,
-        intent: sentiment,
-        confidence: confidence,
-        raw: data
-      });
-
+      const result = await predictSentiment(text);
+      displayResult(result);
     } catch (err) {
-      showError(`Analysis notice: ${err.message}`);
+      console.error('Classification error:', err);
+      showError(`Analysis notice: ${err.message || 'Unable to classify tweet'}`);
     } finally {
       showLoading(false);
     }
   });
 
   /**
-   * Dual-mode prediction runner:
-   * 1. If deployed on Vercel, calls /api/predict
-   * 2. If running on local static server (Live Server), seamlessly queries Hugging Face
+   * Dual-engine sentiment predictor:
+   * 1. Checks if local FastAPI app.py is running on port 8000
+   * 2. Automatically falls back to in-browser Transformers.js (zero server needed)
    */
-  async function getPrediction(text) {
-    const payload = JSON.stringify({ inputs: text, text: text });
-
-    // 1. Try Vercel Serverless Function (/api/predict)
+  async function predictSentiment(text) {
+    // 1. Try local Python FastAPI server if running
     try {
-      const response = await fetch('/api/predict', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      });
+      const localEndpoints = [
+        window.location.origin.includes('8000') ? '/predict' : null,
+        'http://127.0.0.1:8000/predict'
+      ].filter(Boolean);
 
-      const contentType = response.headers.get('content-type') || '';
-      // Only parse if the server actually returned JSON (not a 404 HTML page)
-      if (contentType.includes('application/json')) {
-        const data = await response.json();
-        if (response.ok) return data;
-        if (response.status === 503 && data.estimated_time) {
-          throw new Error(`Model is warming up on Hugging Face (wait: ${Math.round(data.estimated_time)}s). Please try again shortly!`);
+      for (const endpoint of localEndpoints) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 1200);
+
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text }),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          if (res.ok) {
+            const data = await res.json();
+            return {
+              text: data.text || text,
+              intent: data.intent || data.sentiment || 'Unknown',
+              confidence: data.confidence,
+              source: 'Local Trained PyTorch Model (app.py)',
+              raw: data
+            };
+          }
+        } catch (_) {
+          // Local backend not reachable on this endpoint, try fallback
         }
       }
-    } catch (err) {
-      if (err.message && err.message.includes('warming up')) throw err;
-      // Not on Vercel, proceed to direct cloud inference
+    } catch (_) {
+      // Continue to in-browser AI
     }
 
-    // 2. Direct Cloud Fallback (for local development / Live Server)
-    // Non-contiguous token assembly to prevent Git secret scanning false alarms
-    const tParts = ['hf' + '_', 'MaacAIksaVdVs', 'SeziAPYEzS', 'HeBjaXVKrzo'];
-    const authToken = tParts.join('');
-    const hfUrl = 'https://router.huggingface.co/hf-inference/models/Soulity/tweet-sentiment-classifier-model';
+    // 2. In-Browser AI Engine (Transformers.js)
+    showLoading(true, 'Initializing in-browser AI model (cached after first run)...');
 
-    // Use CORS bridge for local Live Server testing
-    const proxyUrl = 'https://corsproxy.io/?url=' + encodeURIComponent(hfUrl);
-
-    let res;
-    try {
-      res = await fetch(proxyUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({ inputs: text })
-      });
-    } catch (e) {
-      // Direct retry if proxy is unavailable
-      res = await fetch(hfUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({ inputs: text })
-      });
-    }
-
-    const result = await res.json();
-
-    if (!res.ok) {
-      if (res.status === 503 && result.estimated_time) {
-        throw new Error(`Model is warming up on Hugging Face (estimated wait: ${Math.round(result.estimated_time)}s). Please wait a moment and click Analyze again!`);
+    const pipe = await getBrowserClassifier((progress) => {
+      if (progress.status === 'progress' && loadingText) {
+        const pct = Math.round(progress.progress || 0);
+        loadingText.textContent = `Loading model weights: ${pct}%...`;
+      } else if (progress.status === 'ready' && loadingText) {
+        loadingText.textContent = 'Model ready! Analyzing sentiment...';
       }
-      throw new Error(result.error || result.detail || `Inference error (status ${res.status})`);
-    }
+    });
 
-    return result;
+    showLoading(true, 'Analyzing tweet sentiment...');
+    const outputs = await pipe(text);
+
+    // Parse model output
+    const top = outputs && outputs[0] ? outputs[0] : { label: 'neutral', score: 0.5 };
+    const rawLabel = (top.label || '').toLowerCase();
+
+    let sentiment = 'Neutral';
+    if (rawLabel.includes('pos')) sentiment = 'Positive';
+    else if (rawLabel.includes('neg')) sentiment = 'Negative';
+    else if (rawLabel.includes('irrel')) sentiment = 'Irrelevant';
+
+    return {
+      text: text,
+      intent: sentiment,
+      confidence: top.score,
+      source: 'In-Browser AI (Transformers.js • RoBERTa Twitter Sentiment)',
+      raw: outputs
+    };
   }
 
-  function showLoading(isLoading, msg = 'Running inference...') {
+  function showLoading(isLoading, msg = 'Analyzing sentiment...') {
     loadingIndicator.style.display = isLoading ? 'flex' : 'none';
-    const span = loadingIndicator.querySelector('span');
-    if (span) span.textContent = msg;
+    if (loadingText) loadingText.textContent = msg;
     submitBtn.disabled = isLoading;
   }
 
@@ -177,11 +172,15 @@ document.addEventListener('DOMContentLoaded', () => {
     resultsCard.style.display = 'none';
   }
 
-  function displayResult(result) {
-    const sentiment = result.intent;
-    const confidence = typeof result.confidence === 'number'
-      ? (result.confidence * 100).toFixed(1) + '%'
-      : result.confidence;
+  function displayResult(data) {
+    const sentiment = (data.intent || data.sentiment || 'Unknown').toString();
+    
+    let confidenceStr = 'N/A';
+    if (typeof data.confidence === 'number') {
+      confidenceStr = `${(data.confidence * 100).toFixed(1)}%`;
+    } else if (data.confidence) {
+      confidenceStr = data.confidence.toString();
+    }
 
     sentimentBadge.textContent = sentiment;
     sentimentBadge.className = 'result-badge';
@@ -191,14 +190,12 @@ document.addEventListener('DOMContentLoaded', () => {
       sentimentBadge.classList.add('badge-positive');
     } else if (sLower.includes('neg')) {
       sentimentBadge.classList.add('badge-negative');
-    } else if (sLower.includes('neu')) {
-      sentimentBadge.classList.add('badge-neutral');
     } else {
-      sentimentBadge.classList.add('badge-irrelevant');
+      sentimentBadge.classList.add('badge-neutral');
     }
 
-    confidenceScore.textContent = confidence;
-    rawResponse.textContent = JSON.stringify(result.raw || result, null, 2);
+    confidenceScore.textContent = confidenceStr;
+    rawResponse.textContent = JSON.stringify(data, null, 2);
     resultsCard.style.display = 'block';
   }
 });

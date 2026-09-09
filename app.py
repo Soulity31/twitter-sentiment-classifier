@@ -1,10 +1,3 @@
-# ==============================================================================
-# FASTAPI BACKEND (COMMENTED OUT FOR LEARNING / REFERENCE)
-# All connections to FastAPI have been removed from the frontend.
-# The application now runs purely using the Hugging Face Inference API.
-# ==============================================================================
-
-"""
 import os
 import torch
 import joblib
@@ -31,7 +24,7 @@ if os.path.exists(new_folder_model) and not os.path.exists(root_model):
         print(f"Notice: {e}")
 
 @asynccontextmanager
-async def lifespan(app : FastAPI):
+async def lifespan(app: FastAPI):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Loading model artifacts on {device}")
 
@@ -97,7 +90,7 @@ def get_labels():
     encoder = ml_models.get("label_encoder")
     return {"labels": list(encoder.classes_) if encoder else []}
 
-@app.post("/predict", response_model = PredictResponse)
+@app.post("/predict", response_model=PredictResponse)
 def predict_intent(request: PredictRequest):
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty.")
@@ -133,4 +126,3 @@ def predict_intent(request: PredictRequest):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
-"""
